@@ -1,0 +1,653 @@
+
+
+# Services and Topics
+
+The main content domains and their weighting in the exam:
+ * Incident Response 12% 
+ * Logging and Monitoring 20% 
+ * Infrastructure Security 26%
+ * Identity and Access Management 20% 
+ * Data Protection 22% 
+
+# Services
+
+A complete list of the security services, and selected services of relevance to security (and the security specialist certification). Taken from the [AWS product list](https://aws.amazon.com/products/) as of March 2019; if a category isn't listed it's because none of the services in that category are particularly applicable.
+
+Particularly important services and topics are in **bold**.
+
+Security service links are to their FAQ pages, as a useful source of information on particular use cases and constraints that might be examined. Other service links are to their main product pages
+
+*Security*
+* [Artifact](https://aws.amazon.com/artifact/faq/)
+    + Generic AWS compliance docs
+* [Certificate Manager](https://aws.amazon.com/certificate-manager/faqs/)
+    + Issuance can take a few hours
+    + Email or DNS validation (email only for CloudFormation)
+    + Validates DNS CA Authorization records first
+    + Certs are region-locked, unless CloudFront is used (w/ virgina)
+    + Private keys are KMS protected - CloudTrail shows services using KMS to get the keys
+    * Private CA
+        + Allows export of the private key, whereas public standard only integrates with AWS services
+* [Cloud Directory](https://aws.amazon.com/cloud-directory/faqs/)
+    + Generic directory service - not Active Directory. Could be used for user/device management.
+    + Encrypted at rest and in transit
+* [CloudHSM](https://aws.amazon.com/cloudhsm/faqs/)
+    + Advertised as only suitable when you have contractual/regulatory constraints.
+    + Only option for SQL Server and Oracle transparent database encryption (but not AWS RDS Oracle!). Also works with redshift.
+    + PKCS#11, JCE, CNG
+    + FIPS 140-2 Level 3 certified
+    + KMS can use it as a key store
+    + Each instance appears as network resource in VPC; client does load-balancing.
+    + [[HSM] Server] <-TLS-in-TLS-> [client] <-p11 etc-> [app]
+    + HSM users authenticate with username + password
+    + CloudTrail for provisioning API calls; CloudWatch Logs for HSM logs
+* [**Cognito**](https://aws.amazon.com/cognito/faqs/)
+    * User Pools
+        + Free up to 50k monthly active users
+        + OAuth user tokens
+    * Identity Pools
+        + Mapping between federated user IDs and cognito user IDs. Per pool.
+        + Grants temporary AWS creds (either directly from federation, or in exchange for a user pool token)
+    + IAM Roles assigned based on pool groups / rules / guest
+    + API Gateway has direct support for Cognito tokens (no need for identity pool)
+    + Sync store - key/value store per identity
+    + [Common scenarios](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-scenarios.html)
+    + Various soft limits e.g. API calls/s, groups/pool, etc. No limit on number of users.
+* [Directory Service](https://aws.amazon.com/directoryservice/faqs/)
+    + Works with EC2 (manage them via group policies), RDS SQL server, WorkSpaces, AWS SSO, and a few more obscure ones
+    + Can assign IAM roles to AD users for AWS access
+    * Managed Microsoft AD
+        + Can join to existing AD with trust relationships
+        + Or replace an on-prem AD by using Direct Connect or VPN
+        + EBS volumes are encrypted. Deployed on two AZs. Daily backups.
+        + Some high-priv operations not available. No remote access, powershell access. You get an OU and delegated admin account for it.
+    * AD Connector
+        + Proxy for [specific list of AWS services](https://docs.aws.amazon.com/directoryservice/latest/admin-guide/ad_connector_app_compatibility.html) through to on-prem AD.
+        + Notably works with: SSO; management console; EC2 Windows (join domain)
+    * Simple AD
+        + Samba backend. Like Managed Microsoft AD but less features and smaller resource limits.
+* [Firewall Manager](https://aws.amazon.com/firewall-manager/faqs/)
+    + Centrally manage WAF rules across CloudFront and ELB Application Load Balancers via Organizations
+    + (not NACLs or Security Groups)
+* [**Guard Duty**](https://aws.amazon.com/guardduty/faqs/)
+    + Uses CloudTrail, VPC Flow Logs, and DNS Logs (if EC2 instances are configured to use Route 53 resolvers - the default). Doesn't require you to enable them!
+    + ^^ meta-data, + AWS' threat intelligence - domains & ips, + ML
+    + Pricing per volume of data analyzed
+    + Looks for reconnaisance, (ec2?) instance compromise, account compromise
+    + Findings -> GuardDuty console (for 90 days) + CloudWatch Events. JSON similar to Macie & Inspector
+    + Regional. Can aggregate via CloudWatch Events to push to a central store
+    + CloudWatch events -> SNS topic (-> email) / Lambda (->S3)
+* [**IAM**](https://aws.amazon.com/iam/faqs/)
+    * Users, Groups, Roles
+        + Roles for EC2 instances
+            + creds found in http://169.254.169.254/latest/meta-data/iam/security-credentials/\<role / instance profile name>
+            + users need iam:PassRole for the relevant roles.
+            + Can be attached at launch or later.
+            + Auto rotation, built in support for obtaining the creds when using CLI & SDKs
+        + Service linked role - predefined policy granting service what it needs; immutable trust policy.
+        + Assumed role ARN: `arn:aws:sts::AWS-account-ID:assumed-role/role-name/role-session-name`
+    * Access keys
+        + Rotate by creating second access key, start using it, check last used date of old one, make old one inactive, then deleting it
+    * Policies
+        + Resource based policies
+            + Specifies a Principal.
+            + Can't be managed policies - always inline.
+            + Not actually IAM policies at all - just usually use the same policy language
+            + Notable ones: Organizations (SCP); S3; API Gateway; Lambda; KMS 
+        + Identity based policies (aka IAM policies)
+            + Attached to a user/group/role - implicit Principal
+            + Limit of 10 managed policies can be attached
+            + Versions - up to 5, you set which is the 'default' for customer managed policies. inline polciies don't have versions.
+        * [Permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html)
+            + Set the maximum permissions that an identity-based policy can grant to an IAM entity
+            + Unlike SCPs, can specify resources and use conditions
+        + Service Control Policies (SCPs) - see Organizations
+        + Session policies - like a permission boundary, optionally passed prorgamatically as part of AssumeRole*
+        * [Evaluation logic](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html)
+        * Policy variables
+            + Use in resource element and string operators in conditions
+            + Basically the same set of variables as global conditions. aws:username etc.
+        * Conditions
+            * Operators
+                + Date, Numeric, String, Bool, Binary (b64), IpAddress, Arn, Null (key:true - key doesn't exist, key:false - key does exist and isn't null)
+                + operators are ANDed, multiple values in an operator are ORed
+                + ...IfExists returns true if key doesn't exist
+                + Set operators for keys with multiple values - ForAllValues:... ForAnyValue:...
+            + All services: time, MFA, secure transport, user agent
+            + aws:source{Vpc,Vpce (endpoint),Account,Arn,Ip}
+            + aws:PrincipalOrgID - instead of listing lots of accounts, just use the Org. In resource policies - Principal:*, then this condition
+            + aws:PrincipalTag/<tag-key> - you can tag users and roles. Also aws:RequestTag and service:ResourceTag
+            + aws:PrincipalType
+            + aws:RequestedRegion
+            + aws:userid aws:username
+        * (Not)Principal
+            + AWS - users, roles, accounts
+            + Federated - just "this principal authenticated with this provider" - no info on the role
+            + Service - in trust policies
+            + AWS:* - IAM identities (not services)
+            + NotPrincipal rarely, and not with Allow as v fragile. NotPrincipal+Deny acts like a whitelist due to policy eval rules.
+        + NotAction - matches everything except the list of actions. With Allow is very broad - combine with a resource constraint to make it more selective.
+        * Resource
+            + Wildcards - *? - don't span segments
+            + NotResource + Deny: blacklist. NotResource + Allow: risky - allows all others incl. future ones.
+    * Access advisor
+        + When did an entity last use a permission
+        + For each of User, Group, Role, and Policy
+    * Federation
+    + [Service support](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-services-that-work-with-iam.html)
+        + Of interest are services that have resource-based policies, services that don't have resource-level permissions, and services that don't support temporary creds
+        + Notable resource-based policies: ECR; Lambda; S3 & Glacier; KMS; Secrets Manager; API Gateway; VPC endpoints; SNS; SQS; SES
+        + Notable ones missing resource level permissions: CloudFront (no resource policies either)
+        + ~everything that matters supports temporary credentials
+    * Temporary credentials
+        + Can't be revoked, but you can revoke an IAM user if they created the temporary creds, which invalidates them.
+        + Include a token as well as access key & secret key. Token is appended to requests (header/query param)
+        + Not regional
+        + You can use AssumeRoleWithWebidentity as a less-featured alternative to Cognito w/ your users
+    * Multifactor
+        + No support for SMS any more.
+        + U2F, virtual TOTP, hardware TOTP provided by AWS.
+        + Root user can recover from lost second factor by verifying email address + phone number ownership.
+        + APIs can require it by adding condition statements to identity or resource policies using `aws:MultiFactorAuthPresent` or `aws:MultiFactorAuthAge` (time since factor seen). Users then call STS to get temporary credentials that allow them to use the API. Doesn't work with root or U2f.
+        + Doesn't work with federation
+* [Inspector](https://aws.amazon.com/inspector/faqs/)
+    * Rules packages
+        + Predefined only.
+        + Network: Network Reachability
+        + Host: CVEs; CIS Benchmarks; Security Best Practices (OS config incl remote access); Runtime Behavior Analysis (protocols, ports, software config)
+    * Template
+        + Rules packages (predefined only), target EC2 instances, SNS topic
+    + Network reachability + host config (CVEs in package manager installed software, CIS benchmarks for popular OSes)
+    * Agent required for host config
+    + Network reachability: enumerates what ports are accessible from outside of a VPC (+ what process listening on those ports, with agents)
+    + Service linked role to enumerate EC2 instances and network config
+    + Simple schedule in template, or more advanced via CloudWatch events / custom use of API
+* [**KMS**](https://aws.amazon.com/kms/faqs/)
+    * Key policies
+        + Required. Also different evaluation logic to standard IAM - if the key policy doesn't allow, then the request is denied regardless of identity policies.
+        + Resource: "*" - this CMK
+        + Principal: accounts/users/roles/services. Not groups! Have to use IAM identity policies to manage access via groups (or group -> assumerole).
+        + Default policy for API-create CMKs allows `kms:*` for the account / root user. This ensure it doesn't become unmanageable, and also _enables_ identity based IAM policies - without it IAM policies are ineffective.
+        + Default policy for console created keys also allows you to specify:
+            + Roles/Users who are Key Administrators, who can manage it - incl change its policy.
+            + Roles/Users/other AWS accounts who are Key Users. They can encrypt/decrypt/generatedatakey, and manage grants for AWS services using the `kms:GrantIsForAWSResource` condition.
+    + IAM/identity policies
+        + Required for non-key specific tasks list ListKeys, ListAliases, and CreateKey
+        + Required to use the console
+    + Bunch of [KMS-specific condition keys](https://docs.aws.amazon.com/kms/latest/developerguide/policy-conditions.html?shortFooter=true#conditions-kms) that can be used in either policy type.
+        + `kms:ViaService` to prevent direct API use or block specific service use. All AWS managed CMKs use it to restrict access to the creating service.
+    * Grants
+        + Another resource-based policy attached to keys.
+        + Allow-only, no Deny.
+        + "grantee principal" - who can use the CMK. 
+        + "retiring principal" - who can revoke the grant
+        + Actions: drawn from using the key, and creating further grants
+        + Grant tokens: passed back when creating a grant, allows grantees to use the grant even before it has fully propagated. Not secret, no security impact, just practical.
+    + Key usage -> CloudTrail
+    + AWS services use wrapped data keys with KMS - 'envelope encryption'
+    + APIs expose raw encrypt/decrypt operations, <4kb
+    * CMKs
+        + AES-256
+        + CMKs are stored in HSMs (140-2 level 2)
+        + AWS managed CMKs you have no control over. Customer managed ones you can set policies.
+        + Imported CMKs can be deleted immediately and can have an expiry time.
+        + 1000 CMKs per region
+        + Keys are region-specific
+        - Key rotation
+    * Custom key store
+        + Uses CloudHSM
+        + Can't import or automatically rotate keys - otherwise the same management as normal key stores
+        + Only for customer managed CMKs
+        + You're responsible for availability
+        + Manual rotation: create key and remap key alias
+    * CloudHSM
+        + Single tenant 140-2 level 3 HSM - compliance
+        + CloudHSMs appear in a VPC
+        + Audit options beyond CloudTrail - CloudHSMs log locally and copy to CloudWatch
+        + PKCS11 etc interfaces (as well as using as a custom key store)
+    + Each region has a FIPS 140-2 validated endpoint (uses openssl fips module) and a standard endpoint. 
+    + AES-128 or AES-256 data keys
+    + Crypto operations accept an optional _encryption context_, which is used as additional authenticated data (AAD) in the operation. If differs then decryption fails. Included in CloudTrail logs. Example used by S3:
+        ```json
+        "encryptionContext": {
+            "aws:s3:arn": "arn:aws:s3:::bucket_name/file_name"
+        },
+        ```
+* [Macie](https://aws.amazon.com/macie/faq/)
+    + Classifies data in S3.
+    + Personally Identifiable Information (PII), Personal Health Information (PHI), regulatory documents (legal, financial), API keys and secret key material
+    + Watches policy and ACL changes
+    + Watches access patterns via CloudTrail
+    + Alerts on CloudWatch Events, Lambda, and Macie dashboard
+    + Primarily English
+* [**Organizations**](https://aws.amazon.com/organizations/faqs/)
+    + Organizational Units (OUs) divide up the 'administrative root'
+    + Accounts can only be in one OU, and OUs can only be in one OU. But they can be nested up to 5 levels.
+    * Service Control Policies (SCPs)
+        + Which IAM policy Actions can be used in the account.
+        + Applied to the root, to an OU, or to an account
+        + Implicit and explicit Deny.
+        + All statements: Version, Statement, Sid, Action, and Effect:Allow/Deny
+        + Allow statements: no conditions, Resources must be '*'
+        + Deny statements: support conditions and resources and NotAction
+        + No principal - implicitly the accounts it's applied to
+        + Is a whitelist, but can simulate a blacklist with Allow Action:'*' and another Deny statement
+        + FullAWSAccess (allow *) is automatically attached to the root and new OUs. You can remove it.
+        + Use policy simulator in member accounts to test effect
+    * Trusted access
+        + service-linked roles get created in member accounts as needed. Authorized via master account.
+        + CloudTrail can create an organizational trail, for all events in all member accounts. Member accounts can't modify it.
+    + Landing Zone account structures, incl logging & security accounts
+* [Secrets manager](https://aws.amazon.com/secrets-manager/faqs/)
+    + Also see: Systems Manager Parameter Store - no rotation features, but free.
+    + Automatic rotation for AWS RDS, DocumentDB, Redshift
+    + Lambda functions to rotate other types
+    + 4kb limit on secrets (JSON docs)
+    + Encryption at rest via KMS. (for cross-account access to a secret, must use a custom CMK that the principal in the other account can use)
+    * [Policies](https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access.html)
+        + Resource-based (action+principal) and identity-based (action+resource) policies.
+        + `arn:aws:secretsmanager:<region>:<account-id>:secret:optional-path/secret-name-6-random-characters`
+        + ```json
+            {
+                "Sid" : "Get current TestEnv secrets",  
+                "Effect": "Allow",
+                "Action": [ "secretsmanager:GetSecretValue" ],
+                "Resource": "arn:aws:secretsmanager:<region>:<account_id>:secret:TestEnv/*",
+                "Condition" : { 
+                    "ForAnyValue:StringLike" : {
+                        "secretsmanager:VersionStage" : "AWSCURRENT" 
+                    } 
+                }
+            }```
+        + Condition keys include `secretsmanager:ResourceTag/<tagname>`, `secretsmanager:VersionStage`
+        + Configuring rotation requires creating and assigning a role to a Lambda function, which needs e.g. IAMFullAccess
+* [Security hub](https://aws.amazon.com/security-hub/faqs/)
+    + Regional - findings don't cross regions
+    + Multi-account support
+    + Findings from Guard Duty, Inspector, Macie, third party, and self-generated against CIS standards
+    + Insights: collections / filters of findings
+* [Shield](https://aws.amazon.com/shield/faqs/)
+    + Standard - integrated into existing services. Not a stand-alone service. Netflow monitoring & TCP/UDP protection.
+    * Advanced
+        + Layer 7 protection, WAF rule creation
+        + CloudFront integration - can protect non-AWS origins
+        + CloudWatch metrics notifications of attacks
+        + Global threat environment dashboard, see overall stats for the whole of AWS
+        + AWS DDoS team support
+* [SSO](https://aws.amazon.com/single-sign-on/faqs/)
+    + Free
+    + Primary use case: manage multi-account access with Organizations.
+    + Additional use case: SSO to other applications via SAML 2 (custom or a bunch of built-in integrations)
+    + IAM identity provider created in member accounts for SSO. Also service-linked roles created to allow SSO to manage Roles
+    + Sign-ins logged to CloudTrail
+    * Directories
+        + Native directory - default. Create users & groups within SSO
+        + AWS Directory Service - Managed AD & AD Connector (not simple AD)
+        + Only a single directory can be connected
+    * Permissions sets
+        + collections of policies.
+        + Implemented as Roles in member accounts.
+        + Limit of 20 per account.
+        + Ref 10 AWS managed policies, or use an inline policy
+    + Control access by mapping users/groups (from the attached directory) to permissions sets & accounts. This data is held in SSO, not the directory.
+    + No API!
+    + For CLI access, SSO user portal gives you temporary creds for the Roles you have access to
+* [WAF](https://aws.amazon.com/waf/faqs/)
+    * Conditions
+        + Inspect: IP addresses (+ region mapping), HTTP headers, HTTP body, URI strings
+        + Match against: SQL injection, cross-site scripting, regex, strings, IP ranges, regions, sizes.
+    * Rules
+        + Comprise a number of conditions ANDed together
+        + Rate based rule - 5 minute period for given IP, e.g. to protect against DDoS or login brute forcing
+        + Need conditions for normal rules, but they're optional for rate-based rules (no condition=all requests count)
+        + Managed rules from Marketplace sellers.
+    * Web ACLs
+        + Collection of rules, ORed together
+        + Actions per rule: allow, block, or count (for testing)
+        + Default action if no rule matches
+    + Associate Web ACLs with CloudFront, ALB, and API Gateway instances which will then proxy requests via WAF and act on result
+    + Also see Firewall Manager and Shield (Advanced)
+
+*Analytics* (mostly of interest for their application to logs)
+* [Athena](https://aws.amazon.com/athena/faqs/)
+    + SQL queries over data in S3 after you define a schema. Including (optioanlly compressed) JSON & CSV
+    + Integrates with Glue's Data Catalog - a more featureful version of Athena's built in Data Catalog which supports fine-grained permissions.
+    + Charged per query (volume of data scanned)
+    + Security model uses both athena:* permissions for queries and data models, and then the underlying S3 permissions
+    + Can query encrypted data that uses S3 or KMS managed keys. Can encrypt results.
+    + Athena is better than Redshift for querying smaller datasets without pre-processing.
+    + CloudTrail can automatically create Athena tables for you. Other good candidates: VPC flow logs (if sent to S3), CloudFront, ELB.
+* [Elasticsearch service](https://aws.amazon.com/elasticsearch-service/faqs/)
+    + IAM auth for management, ES APIs, and resource-based policies down to index level
+    + Resource based policies can allow specific IP addresses
+    + Kibana auth via Cognito
+    + Can configure public or VPC endpoints
+    + Ingress via Kinesis Firehose, Logstash, or ES's index/bulk APIs
+    + KMS integration for data at rest
+* [Glue](https://aws.amazon.com/glue/faqs/)
+    + "Select a data source and data target. AWS Glue will generate ETL code in Scala or Python to Extract data from the source, Transform the data to match the target schema, and Load it into the target. "
+    + Sources: S3, Redshift, and RDS and other databases
+    + Loading into other services for querying (e.g. Athena, Redshift)
+* Kinesis
+    + Ingest and analyse various data sources, notably logs
+    * [Data Firehose](https://aws.amazon.com/kinesis/data-firehose/faqs/)
+        + "capture, transform, and load streaming data into Amazon S3, Amazon Redshift, Amazon Elasticsearch Service, and Splunk"
+        + Create delivery stream, with optional Lambda function to transform the data
+        + Configure producers to send data to Kinesis with the Kinesis Agent (which monitors log files) or Firehose API
+        + Source integrations: CloudWatch Logs subscription filter; CloudWatch Events rule with Firehose target; Kinesis Data Streams. 
+        + Configure an IAM role that it assumes to access e.g. S3 or Elasticsearch
+        + Manage delivery frequency with buffer size or interval
+* Redshift (see Database section)
+
+*Application Integration*
+* [SNS](https://aws.amazon.com/sns/)
+    + Pub/sub.
+    + Sources include: SNS API, Lambda, ELB, S3, databases, Code*, CloudWatch, Inspector, and others
+    + Destinations: Lambda, SQS, webhooks, SMS, email 
+    + Subscribers have to validate - a challenge message is first sent
+* [SQS](https://aws.amazon.com/sqs/)
+    + Polling, vs SNS's push mechanism
+    + Standard queues might reorder messages or deliver them multiple times
+    + Has its own resource-based security policy, that predates IAM? Looks similar to IAM polciies. Only resource is a queue.
+    + Can subscribe to SNS topics
+    + Can trigger Lambda functions on message receipt
+    + Uses KMS for optional encryption
+
+*Compute*
+* [**EC2**](https://aws.amazon.com/ec2/)
+    * AMIs
+        + LaunchPermission attribute - which _accounts_ can use the AMI.
+    * Keypairs
+        + Create or import - 2k RSA.
+        + Independent of instances, but each instance is associated with 1+ keys
+        + Linux: it's just an SSH key
+        + Windows: upload the private key to the ec2 console to decrypt the default admin password so you can RDP in...
+    + [Resources and condition keys](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-policy-structure.html)
+    + Instance store - hard disk attached to the instance; reset when the instance is stopped. Not encrypted - could use host software disk encryption for a temporary data partition.
+* ECR
+* ECS
+* Lightsail?
+* Elastic Beanstalk?
+* Fargate?
+* [**Lambda**](https://aws.amazon.com/lambda/)
+    + Logs to CloudWatch
+    + Execution role
+        + assumed to run
+        + at minimum CloudWatch logs creategroup/createstream/putevents
+        + Potentially also XRay write, SQS/Kinesis/dynamodb read to get the event data
+    + Resource policies
+        + Resources: functions, their versions and aliases, and layer versions
+            + `arn:aws:lambda:region:123456789012:function:my-function`
+            + `arn:aws:lambda:region:123456789012:function:my-function:1`    - version
+            + `arn:aws:lambda:region:123456789012:function:my-function:TEST` - alias
+        + Use to give other services (principal: service: sns.ama...) and other accounts (principal: aws: account-arn) permission to use them
+        + The console updates function policies automatically when you add a trigger to give the triggering service access
+    * Identity policies
+        + nice examples: ARN pattern so users have to include their username in function names; have to include a logging layer
+        + To give users the ability to create functions with limited permissions, constrain what roles they can iam:PassRole on.
+        + To give users the ability to add resource permissions to functions so they can be invoked, but only from specific sources, check lambda:Principal in a condition
+    * VPC access
+        + Can access resources in a VPC if subnet + security group is specified.
+        + No internet access unless there is a NAT in the VPC.
+        + No AWS service access unless there is internet access or VPC gateways
+        + Role needs ability to create network interfaces in each subnet (and VPC must have ENI capacity & subnets must have spare IPs)
+* ELB
+    * Application Load Balancer (ALB) - HTTP/HTTPS
+    * Network Load Balancer - TCP/TLS
+    * (Classic)
+    + Logs to S3
+
+*Customer Engagement*
+* SES
+    + potentially incident notification, but SNS probably more appropriate
+
+*Database*
+* DynamoDB
+* RDS
+* Redshift
+* Neptune?
+* Aurora?
+* DocumentDB?
+
+*Developer tools*
+* Code Pipeline
+* X-Ray
+
+*End User Computing*
+* WorkSpaces
+
+*Internet of Things?*
+* IoT Device Defender
+* IoT Device Management
+
+*Management and Governance*
+* CloudFormation
+    * Stacks
+        + You can assign a service role, if you can iam:PassRole it. Anyone who can operate on that stack can leverage that role's permissions.
+    * StackSets
+        + Custom administration role, with identity policies that constrain iam:PassRole for that role to control who can use it
+        + Custom execution role, with limits on what resources it has action to, and a trust policy for specific administration role(s) in the admin account
+* **CloudWatch**
+    * [Logs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html)
+        - Subscription filters
+    * Logs Insights
+        + Limited query language for analysis and visualization
+    * Events
+    + Has other capabilities (metrics, scaling) of less relevance
+* **CloudTrail**
+    + also logs Cognito events, step function logs, and CodeDeploy
+    + Logs to S3 / CloudWatch Logs
+* Config
+    * Rules
+    * Streams
+* Control Tower
+* Management Console
+    + The web console!
+* Service Catalog
+* Systems Manager (SSM)
+    - Run command
+    + Insights dashboard potentially useful for understanding baseline usage patterns to contrast with during an incident
+    - README. Useful for incident response - self documenting infra?
+    - Parameter store
+* [**Trusted Advisor**](https://aws.amazon.com/premiumsupport/technology/trusted-advisor/faqs/)
+    + 7 free checks, all checks with appropriate support plan.
+    + API; Console; Weekly notification email with summary of findings
+    + Can exclude resources from all checks. Can't suppress individual checks.
+    + Cost optimization, security, service limits, fault tolerance, performance
+    + Security checks: 
+        + Security group open access to specific high-risk ports
+        + Security group unrestricted access
+        + Open write and List access to S3 buckets
+        + MFA on root account
+        + Overly permissive RDS security group
+        + Use of cloudtrail
+        + Route 53 MX records have SPF records
+        + ELB with poor or missing HTTPS config
+        + ELB security groups missing or overly permissive
+        + CloudFront cert checks - expired, weak, misconfigured
+        + IAM access keys not rotated in last 90 days
+        + Exposed access keys on GitHub etc 
+        + Public EBS or RDS snapshots
+        + Missing or weak IAM password policy
+* Snow Family (see storage)
+
+*Mobile*
+* API Gateway (see network & content delivery)
+
+*Networking & Content Delivery*
+* API Gateway
+    + Logs to CloudWatch
+* CloudFront
+    + Logs to S3 w/ dedicated(?) bucket ACL
+* Route 53
+* VPC PrivateLink - see VPC Interface Endpoints
+* App Mesh?
+* Cloud Map?
+* Direct Connect
+    + Dedicate WAN link.
+    + Alternative backend to Virtual Private Gateway instead of "vanilla internet"
+* [Transit Gateway](https://aws.amazon.com/transit-gateway/)
+    + "A hub that controls how traffic is routed among all the connected networks which act like spokes"
+    + Instead of lots of (1:1) VPC peering relationships and lots of (1:1) VPN connections, connect each VPC to the single transit gateway and manage centrally
+* [**VPC**](https://aws.amazon.com/vpc/)
+    + Spans all AZs in a single region
+    + Soft limit of 5 VPCs per region
+    + Has a CIDR, can have 4 additional CIDRs
+    + See [example scenarios](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Scenarios.html)
+    + [Policy resources and condition keys](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/ec2-api-permissions.html)
+        + Most resources support the `ec2:Vpc` and `ec2:Region` condition keys. Other notable ones listed below.
+        + `arn:aws:ec2:<region>:<account>:internet-gateway/igw-id`
+        + `arn:aws:ec2:<region>:<account>:network-acl/nacl-id`
+        + `arn:aws:ec2:<region>:<account>:network-interface/eni-id` and `ec2:{Subnet,AvailabilityZone}`
+        + `arn:aws:ec2:<region>:<account>:route-table/route-table-id`
+        + `arn:aws:ec2:<region>:<account>:security-group/security-group-id`
+        + `arn:aws:ec2:<region>:<account>:vpc/vpc-id` and `ec2:Tenancy`
+    * Network interfaces
+        + Has one or more IP addresses, a MAC address, one or more security groups, 
+        + Can be moved between EC2 instances
+        + Can't move the primary interface of an instance
+    * Egress options:
+        * Internet Gateway
+            + Attached to VPC
+            + Interface must have a public address, but the gateway does NAT so incoming traffic is addressed to the interface's private address
+        * Virtual Private Gateway
+            + IPSec VPN attached to a VPC
+            + Need a corresponding customer gateway in the other network(s)
+            + Route table(s) need updating to point at customer gateway. Route propagation can do this automatically.
+            + Security groups need rules to allow access from remote network
+        * VPC Peering Connection
+            + VPC peering can cross both accounts and regions, but is not transitive between VPCs
+        * VPC Endpoints
+            + To keep service traffic within AWS. No public IP needed.
+            + Endpoint policies - resource policies that constrain what service actions are possible via that endpoint.
+            + S3 bucket policies can limit access to a specific endpoint or VPC using aws:sourceVpce and aws:sourceVpc, e.g.:
+                ```json
+                {   "Sid": "specific-vpc-endpoint",
+                    "Condition": {
+                        "StringNotEquals": {
+                            "aws:sourceVpce": "vpce-1a2b3c4d"
+                        }
+                    },
+                ```
+            + Similarly can use `aws:sourceVpce` in an identity policy for DynamoDB
+            * Gateway Endpoint
+                + Gateway in the VPC that you route to with a special-case entry in route tables
+                + S3 and DynamoDB only - they don't have interface endpoints
+            * Interface Endpoint (PrivateLink)
+                + Elastic network interface with a private IP address
+                + In a subnet and security group(s) - security group needs to allow outbound access to the service
+                + Several services including EC2, ELB, SNS, CloudWatch, Systems Manager, and various Marketplace products.
+                + Has an endpoint specific DNS hostname. 
+                + Private DNS allows you to use the normal hostname for the services, by creating a DNS zone in the VPC using Route53 that has a record for the service that resolves to the interface's private IP address.
+        * NAT Gateway
+            + To prevent unsolicited inbound connections but allow outbound connections for instances without a public IP
+            + Within a public subnet, in a specific AZ
+            + The subnet's NACL applies, but NAT Gateways aren't in any security groups
+            + Has an Elastic IP address
+            + Connects to an Internet Gateway
+            + Can be used by instances in a different (private) subnet in the same VPC
+        + Also see Transit Gateway
+    * Subnets
+        + Within a single AZ
+        + Can be shared across accounts!
+        + CIDR is within the VPC's CIDR and can't overlap other subnets in the VPC. Must have IPv4 CIDR.
+        + Associated with a route table for outbound traffic. Default to VPC's main route table. 
+        + Public subnet = route table includes an internet gateway. Otherwise called a private subnet.
+        + Instances have a private IP and optionally (configured at subnet + instance level) either a public IP (random from AWS' pool) or an Elastic IP (persistent, owned by your account)
+        + Instances with a public/elastic IP also get a public DNS hostname
+        * Network ACLs
+            + Each subnet has a NACL
+            + What traffic can enter/exit a subnet
+            + Stateless - must have explicit inbound and outbound rules - replies aren't special. For web-facing servers, need to allow outbound ephemeral ports e.g. 1024+ for all addresses
+            + VPC default NACL is used for new subnets, its initial rules allow all traffic
+            + Rules: Allow/Deny, dest port, src/dst addr, protocol.
+            + Rules evaluated in order until one matches. Default deny (there's an immutable final deny rule that matches all).
+            + Custom NACLs start with no rules (except the deny-all).
+    * Route tables
+        + Exist in the VPC. Subnets are associated with a single route table
+        + The most specific route that matches is used
+        + Always have unmodifiable local routes for in-VPC traffic
+        + Need to have entries for gateways and VPC peering
+        + New VPCs have a main route table. You can make a custom route table the main one.
+    * Flow logs
+        + to S3 or CloudWatch Logs
+        + Log streams/files are per interface, but can be configured at VPC, subnet, or network interface level
+        + Capture window: ~10 minutes after which a log entry is published
+        + `<version> <account-id> <interface-id> <srcaddr> <dstaddr> <srcport> <dstport> <protocol> <packets> <bytes> <start> <end> <action> <log-status>`
+        + Doesn't record: Amazon DNS requests (does record requests to a custom DNS server); 169.254.169.254 metadata; DHCP; traffic to the default VPC router
+        + Identity policies only - no resource based policies
+        + Flow logs service needs a role to assume so it can publish logs to S3 or CloudWatch, and users need iam:PassRole for the role
+        + S3 Bucket policy must allow the service to PutObject + a bit more. Automatically created if the flow log creator can create and modify bucket policies.
+    * Security groups
+        + What traffic can flow to/from an instance
+        + Allow rules only, direction specific.
+        + Multiple SGs per instance are possible.
+        + Rules on src/dest, dest port, protocol (TCP, UDP, etc)
+        + src/dest can be ip range; a sg in this VPC or a peered one; service prefix list for gateway endpoints
+        + Default rules in a new group: no inbound, all outbound.
+        + The default security group also allows inbound from other instances in the sg.
+        + Stateful - responses are always allowed
+        + Can reference SGs in peered VPCs.
+
+*Storage*
+* **S3**
+    * Lifecycle policies
+    + S3 access logs -> a bucket
+    - policy actions + resources
+    - ACLs
+* EBS
+    + Snapshots might be useful for recovery
+    + Encryption (if enabled) happens on the EC2 server side, not the EBS side, hence encrypted in transit and rest.
+    + Uses KMS
+* [EFS](https://aws.amazon.com/efs/)
+    + NFS filesystem
+    + Standard posix permissions
+    + Mount targets appear as endpoints in a VPC, so Security Groups can control access
+    + IAM only used for administration
+    + transparent encryption at rest with KMS (could monitor compliance with a CloudWatch alarm over CloudTrail logs)
+    + NFS over TLS is an option with the EFS mount helper (stunnel)
+* S3 Glacier
+    - what is Vault lock?
+* Backup
+* Snow family
+* Storage Gateway
+
+# Topics
+Extracts from Chad Smith's AWS Certified Security - Specialty Crash Course on Safari.
+
+## Log Processing
+Options include 
+1. Kinesis
+2. Athena
+3. RedShift
+4. AWS Glue
+5. Elastic MapReduce
+6. Amazon ElasticSearch/Kibana
+7. CloudWatch Insights
+8. Lambda
+9. EC2 Marketplace
+
+## Data encryption
+Default encryption of data at rest:
+* Glacier
+* Snowball
+* CloudTrail
+* Storage Gateway
+* DynamoDB
+* Elasticsearch
+
+Optional encryption:
+* EFS
+* EBS
+* S3
+* RDS
+* Redshift
+* Elasticache
+* SQS
+* SNS
+* Kinesis
+* CloudWatch Logs
+    - Log groups
+* SSM parameter store
+* Secrets Manager
+
