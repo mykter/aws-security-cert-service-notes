@@ -81,7 +81,7 @@ Security service links are to their FAQ pages, as a useful source of information
     * Users, Groups, Roles
         + Roles for EC2 instances
             + creds found in http://169.254.169.254/latest/meta-data/iam/security-credentials/\<role / instance profile name>
-            + users need iam:PassRole for the relevant roles.
+            + To launch an instance, users need iam:PassRole for the relevant roles.
             + Can be attached at launch or later.
             + Auto rotation, built in support for obtaining the creds when using CLI & SDKs
         + Service linked role - predefined policy granting service what it needs; immutable trust policy.
@@ -236,7 +236,7 @@ Security service links are to their FAQ pages, as a useful source of information
         + Use policy simulator in member accounts to test effect
     * Trusted access
         + service-linked roles get created in member accounts as needed. Authorized via master account.
-        + CloudTrail can create an organizational trail, for all events in all member accounts. Member accounts can't modify it.
+        + CloudTrail can create an [organizational trail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-trail-organization.html), for all events in all member accounts. Member accounts can't modify it.
     + Landing Zone account structures, incl logging & security accounts
 * [Secrets manager](https://aws.amazon.com/secrets-manager/faqs/)
     + Also see: Systems Manager Parameter Store - no rotation features, but free.
@@ -328,7 +328,7 @@ Security service links are to their FAQ pages, as a useful source of information
     + "Select a data source and data target. AWS Glue will generate ETL code in Scala or Python to Extract data from the source, Transform the data to match the target schema, and Load it into the target. "
     + Sources: S3, Redshift, and RDS and other databases
     + Loading into other services for querying (e.g. Athena, Redshift)
-* Kinesis
+* [Kinesis](https://aws.amazon.com/kinesis/)
     + Ingest and analyse various data sources, notably logs
     * [Data Firehose](https://aws.amazon.com/kinesis/data-firehose/faqs/)
         + "capture, transform, and load streaming data into Amazon S3, Amazon Redshift, Amazon Elasticsearch Service, and Splunk"
@@ -364,11 +364,34 @@ Security service links are to their FAQ pages, as a useful source of information
         + Windows: upload the private key to the ec2 console to decrypt the default admin password so you can RDP in...
     + [Resources and condition keys](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-policy-structure.html)
     + Instance store - hard disk attached to the instance; reset when the instance is stopped. Not encrypted - could use host software disk encryption for a temporary data partition.
-* ECR
-* ECS
-* Lightsail?
-* Elastic Beanstalk?
-* Fargate?
+    + Instance profile - credentials for a role available to the instance (see IAM section)
+* [Elastic Container Registry (ECR)](https://aws.amazon.com/ecr/)
+    + IAM access control for pulling & pushing images - identity & resource based
+    + Repository policies - e.g. to allow other accounts to pull
+    + Images encrypted at rest by default with S3 SSE; HTTPS access
+* [Elastic Container Service (ECS)](https://aws.amazon.com/ecs/)
+    + Tasks: set of containers that are placed together.
+    + Containers run on customer-controlled EC2 instances in a VPC, or are Fargate managed.
+    + Networking options:
+        + none
+        + bridge - docker's virtual network
+        + host - tasks get the host's network interface
+        + awsvpc: Task network interfaces are normal ENIs so all the VPC properties apply: exist in a subnet, have security groups, have flow logs. Also means each container can have its own security group & IP, vs host networking where all the containers on one host share interfaces.
+    + Tasks are configured with an execution role they use to access services
+    + Can send logs to CloudWatch
+    * [Fargate](https://aws.amazon.com/fargate/) launch type
+        + Must use awsvpc network mode, CloudWatch logs
+        + Uses [Firecracker](https://firecracker-microvm.github.io/) under the hood (definitely not in scope of the exam, but an interesting topic!)
+* [Lightsail](https://aws.amazon.com/lightsail/)
+    + Like an entirely separate cloud offering within AWS, with extremely limited features. DigitalOcean competitor.
+    + No VPC - separate management of exposed ports
+    + Hopefully not in the exam :)
+* [Elastic Beanstalk](https://aws.amazon.com/elasticbeanstalk/)
+    + Management wrapper around EC2, S3, EBS, RDS
+    + Publicly available by default - configure to use a VPC to limit access
+    + Beanstalk service role to manage other services. Instance profile - role used by instances to get the app, write logs, etc
+    + Logs stored locally, can be configured to use CloudWatch Logs
+* Fargate - see ECS
 * [**Lambda**](https://aws.amazon.com/lambda/)
     + Logs to CloudWatch
     + Execution role
@@ -391,23 +414,96 @@ Security service links are to their FAQ pages, as a useful source of information
         + No internet access unless there is a NAT in the VPC.
         + No AWS service access unless there is internet access or VPC gateways
         + Role needs ability to create network interfaces in each subnet (and VPC must have ENI capacity & subnets must have spare IPs)
-* ELB
+* [Elastic Load Balancing (ELB)](https://aws.amazon.com/elasticloadbalancing/)
+    + Integrated with Certificate Manager to terminate TLS. Can also upload certs to IAM and configure ELB to use them from there.
+    + Can specify which of several predefined cipher-suites - 'security policies' - to support 
     * Application Load Balancer (ALB) - HTTP/HTTPS
+        + In a security group
+        + Integrated with WAF
+        + Authentication: integrates with Cognito and supports Open ID Connect. Redirects users to IdP authorization endpoint, then adds headers with signed JWT containing user info.
+        + Can have a Lambda function as a target. Tranforms JSON response to HTTP. Function policy needs to allow `elasticloadbalancing.amazonaws.com` to InvokeFunction
+        + Can enable access logging to an S3 bucket
     * Network Load Balancer - TCP/TLS
+        + Doesn't support Server Name Indication (SNI)
+        + 2k RSA certs only (ALB is more flexible)
+        + Creates a (read only) network interface in a subnet in each AZ you choose. Not in a security group - instance security groups must allow traffic from its IP address and from client IP addresses
     * (Classic)
     + Logs to S3
 
 *Customer Engagement*
-* SES
+* [Simple Email Service (SES)](https://aws.amazon.com/ses/)
     + potentially incident notification, but SNS probably more appropriate
+    + Can receive mail, which can be encrypted using a KMS protected key. SDK available to support decryption.
 
 *Database*
-* DynamoDB
-* RDS
-* Redshift
-* Neptune?
-* Aurora?
-* DocumentDB?
+
+A comparison and summary of some of the security aspects of the various database offerings:
+
+| **Database** | **Transport encryption**                                                               | **Encryption at rest**                         | **Audit**                                            | **DB Authentication**                                                                                         | **DB Authorization**                                                         |
+|--------------|----------------------------------------------------------------------------------------|------------------------------------------------|------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| RDS          | Rooted at global RDS certs, configuration is per-engine <br>[docs][rds-tls]            | KMS; TDE w/ CloudHSM for SQL Server and Oracle | per-engine log files                                 | per engine user accounts - SQL                                                                                | per engine - SQL                                                             |
+| DynamoDB     | Standard AWS HTTPS endpoint                                                            | KMS                                            | CloudTrail, excl. Get/Put <br>[docs][dynamodb-audit] | IAM only. Cognito possible. <br>[docs][dynamodb-cognito]                                                      | IAM identity policies - resources & condition keys <br>[docs][dynamodb-auth] |
+| Redshift     | ACM managed certificate, redshift specific root <br>[docs][redshift-tls]               | KMS; CloudHSM Classic                          | S3 <br>[docs][redshift-audit]                        | DB user accounts - SQL; IAM with custom drivers <br>[docs][redshift-auth]                                     | SQL                                                                          |
+| Neptune      | Publicly trusted Amazon root; mandated for some regions <br>[docs][neptune-tls]        | KMS                                            | Console <br>[docs][neptune-audit]                    | User accounts; or a limited IAM identity policy mechanism + request signing <br>[docs][neptune-auth]          | Engine-specific; or broad access if using IAM                                |
+| Aurora       | Rooted at global RDS certs, configuration as per mysql/postgres <br>[docs][aurora-tls] | KMS                                            | mysql -> CloudWatch Logs <br>[docs][aurora-audit]    | User accounts; or an IAM authenticated API to obtain short lived passwords to connect <br>[docs][aurora-auth] | mysql/postgres - SQL                                                         |
+| DocumentDB   | Rooted at global RDS certs, configuration as per MongoDB <br>[docs][documentdb-tls]    | KMS                                            | CloudWatch Logs <br>[docs][documentdb-audit]         | MongoDB user accounts                                                                                         | MongoDB standard                                                             |
+[rds-tls]: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html
+[dynamodb-audit]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/logging-using-cloudtrail.html
+[dynamodb-auth]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/using-identity-based-policies.html
+[dynamodb-cognito]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WIF.html
+[redshift-tls]: https://docs.aws.amazon.com/redshift/latest/mgmt/connecting-ssl-support.html
+[redshift-audit]: https://docs.aws.amazon.com/redshift/latest/mgmt/db-auditing.html
+[redshift-auth]: https://docs.aws.amazon.com/redshift/latest/mgmt/generating-user-credentials.html
+[neptune-tls]: https://docs.aws.amazon.com/neptune/latest/userguide/security-ssl.html
+[neptune-audit]: https://docs.aws.amazon.com/neptune/latest/userguide/auditing.html
+[neptune-auth]: https://docs.aws.amazon.com/neptune/latest/userguide/iam-auth.html
+[aurora-tls]: https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html
+[aurora-audit]: https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Integrating.CloudWatch.html
+[aurora-auth]: https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.IAMDBAuth.html
+[documentdb-tls]: https://docs.aws.amazon.com/documentdb/latest/developerguide/security.encryption.ssl.html
+[documentdb-audit]: https://docs.aws.amazon.com/documentdb/latest/developerguide/event-auditing.html
+
+* [DynamoDB](https://aws.amazon.com/dynamodb/)
+    + Optional encryption at rest integrated with KMS
+    + Main resource is a table. No resource based policies. Full access to a table requires access to not just the `table/<name>` resource, but also `table/<name>/*`
+    + Some predefined policies: `AmazonDynamoDBReadOnlyAccess`, `AmazonDynamoDBFullAccess` - custom policies with resource constraints are better
+    + Several condition keys for fine-grained access including: `dynamodb:LeadingKeys`, `dynamodb:Select`, `dynamodb:Attributes`
+    + Example fine-grained permission: you can only access items where the partition key matches your own (web identity) user ID, by using LeadingKeys and a substitution variable.
+    + Get and Put API calls are not logged to CloudTrail - management things are like describe, list, update, create
+    + Has a VPC endpoint you can use
+    + Integration with Cognito: identity pool with roles configured; roles have appropriate policy to (a) allow cognito to assume them and (b) perform desired DynamoDB actions.
+* [RDS](https://aws.amazon.com/rds/)
+    + IAM controls database instances. Each instance type has its own permission model for managing the database - a master user is created with the instance.
+    + Lots of different resources. The main one is an instance - `db` in the arn. No resource based policies.
+    + 'RDS Encryption' - encryption at rest, set during creation, uses KMS. Covers database, backups, replicas, snapshots.
+    + Transparent data encryption for SQL Server and Oracle with CloudHSM
+    + There's a single root for all RDS database TLS certs; each engine uses its own method for connecting over TLS
+    + Manifests as network interfaces in subnets with security groups attached to the interfaces. You specifc a "db subnet group" - a collection of subnets which it can use to put interfaces in.
+    + "Publicly accessible" option controls whether there is a publicly resolvable DNS name for the instance. Still needs appropriate security group rules.
+* [Redshift](https://aws.amazon.com/redshift/)
+    + Cluster management with IAM.
+    + Database user accounts for DB permissions (SQL).
+    + With custom Amazon Redshift JDBC or ODBC drivers, you can authenticate via IAM and get temporary DB user creds. Gives access to existing users or creates new users (groups specified via claims).
+    + Lots of resources, main one is a cluster. No resource based policies. Managed policies to give access to all resources - `AmazonRedshiftFullAccess` and `AmazonRedshiftReadOnlyAccess`
+    + Cluster are associated with 1+ security groups. Doesn't appear as an interface in a subnet. Contrast with RDS and DynamoDB - all different combos of network access control.
+    + Audit logs, disabled by default, -> S3 (as well as the standard CloudTrail logs). Bucket policy has to allow putobject and getacl to a specific user from a redshift AWS account that varies by region: `arn:aws:iam::<redshift regional account id>:user/logs`. If creating the bucket via the console, it does that for you.
+    + Optional encryption at rest. With KMS or CloudHSM Classic (only). Big symmetric encryption key heirarchy.
+* [Neptune](https://aws.amazon.com/neptune)
+    + HTTPS access
+    + Encryption at rest with KMS
+    + Interface appears in at least two subnets spanning two AZs in a VPC, interfaces have security groups.
+    + CloudTrail events appear as though they are from the RDS service not Neptune - it shares some underlying management infrastructure.
+    + Optional audit logs, view or download from the console (no other service integrations, strangely)
+    + IAM for management. Permissions are a subset of rds permissions all the actions are `rds` actions. Can constrain to just neptune with a condition of `rds:DatabaseEngine = graphdb`
+    + Has a very unique hybrid model where you can authenticate with IAM, and define identity policies that allow access. Limited - no condition keys, no fine grained access (only a single `neptune-db:*` action). Pretty confusing when compared to the previous point. HTTP requests then need to be signed with standard AWS v4 signatures that you construct yourself.
+* [Aurora](https://aws.amazon.com/rds/aurora/)
+    + The same as the other RDS engines, except:
+    + Supports IAM database authentication, similar to Neptune. Attach identity policy to IAM principals that allow `rds-db:connect` for a resource that is a particular database user you create in particular way in the DB. You manage user permissions within the DB as per normal - IAM is just for authentication. You get a 'token' from the RDS API by specifying the db and user, then use the token in place of the user's password when connecting normally.
+    + Uses normal VPC security groups to control access within a VPC. Has its own 'DB security group' to control access from outside the VPC - either security groups in other VPCs/accounts or the internet? The other RDS engines only use DB security groups in EC2 classic when a VPC isn't available.
+* [DocumentDB](https://aws.amazon.com/documentdb/)
+    + Similar to RDS: TLS from the RDS root; KMS encryption at rest; master user + mongodb user mgmt; IAM identity policies for management; VPC security groups; endpoints on multiple subnets/AZs; cloudtrail
+    + arns follow the RDS format
+    + Auditing can be enabled to send events to CloudWatch Logs. Categories: connection, data definition language (DDL), user management, and authorization
 
 *Developer tools*
 * Code Pipeline
@@ -417,6 +513,8 @@ Security service links are to their FAQ pages, as a useful source of information
 * WorkSpaces
 
 *Internet of Things?*
+These sound like they should be in scope, but I suspect they're not.
+
 * IoT Device Defender
 * IoT Device Management
 
@@ -429,26 +527,76 @@ Security service links are to their FAQ pages, as a useful source of information
         + Custom execution role, with limits on what resources it has action to, and a trust policy for specific administration role(s) in the admin account
 * **CloudWatch**
     * [Logs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html)
-        - Subscription filters
-    * Logs Insights
-        + Limited query language for analysis and visualization
-    * Events
-    + Has other capabilities (metrics, scaling) of less relevance
-* **CloudTrail**
-    + also logs Cognito events, step function logs, and CodeDeploy
-    + Logs to S3 / CloudWatch Logs
-* Config
+        + CloudWatch Agent can be installed on a host (e.g. via SSM) to push logs to CloudWatch Logs
+        + Log group: a collection of log streams that share the same retention, monitoring, and access control settings
+        + Log stream: a sequence of log events that share the same source
+        + Logs last forever unless you set a retention period on a group
+        + Subscription filters: define a filter pattern that matches events in a particular log group, send them to Kinesis Data Firehose stream, Kinesis stream, or a Lambda function.
+        + Can export log groups (in a particular time range) to S3. Not real time.
+        + Can receive events from other account by creating a 'destination' in CloudWatch, which references a receiving Kinesis stream? The destination has a resource-based policy that controls which accounts can write to the destination. CloudWatch Logs on the sender side can then stream to the other account.
+    * [Logs Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AnalyzingLogData.html?shortFooter=true)
+        + Limited query language for analysis and visualization of data in CloudWatch Logs
+        + Much more powerful than the native CloudWatch Logs interface
+    * [Events](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/WhatIsCloudWatchEvents.html)
+        + Rules that trigger from either event patterns or a schedule
+        + Rules send JSON to one or more targets
+    + Has other capabilities (metrics, alarms, scaling) 
+* [**CloudTrail**](https://aws.amazon.com/cloudtrail/)
+    + Also logs Cognito events, step function logs, and CodeDeploy
+    + Logs to S3 and/or CloudWatch Logs
+    + Without creating a trail, the event history shows 90 days but excludes various events including all read events
+    + A [small number](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-unsupported-aws-services.html) of services don't log to CloudTrail, notably SimpleDB
+    + Trails by default don't include data events (incl S3 object activity and Lambda execution). Can specify those resources you want to record.
+    + Trails are regional, but you can create a global trail which creates identitical trails in all regions. Limit of 5 trails per region.
+    + eventSource: what service produced the event.
+    + Can enable SNS notifications for when a new log _file_ is produced
+    + Can set up CloudWatch metric filters for certain events to trigger a CloudWatch Alarm
+* [**Config**](https://aws.amazon.com/config/)
+    + Resource inventory, configuration history, and configuration change notifications
+    + Configuration changes or deviations -> SNS, CloudWatch Events, console dashboard, S3
+    + Regional, but can aggregate data across (a limited set of supported) regions and accounts. Can't centrally manage rules.
+    + Inspects software running on SSM managed EC2 instances, incl OS version, installed apps, network config.
+    + Configuration changes sent to 'delivery channel' - S3 bucket & SNS topic
+    + Console provides a timeline view of configuration changes
+    + AWSConfigRole is the managed audit role; also needs permisisons for the SNS topic & S3 bucket.
     * Rules
-    * Streams
+        + Continuously evaluate configs against rules
+        + Retrospective and non-enforcing
+        + Custom rules in Lambda
+        + Soft limit of 50 active rules
+        + Periodic (hourly to daily) or change-triggered. Change-triggered must be constrained by tag/resource type/resource id
+
 * Control Tower
 * Management Console
     + The web console!
 * Service Catalog
-* Systems Manager (SSM)
-    - Run command
-    + Insights dashboard potentially useful for understanding baseline usage patterns to contrast with during an incident
-    - README. Useful for incident response - self documenting infra?
-    - Parameter store
+* [**Systems Manager (SSM)**](https://aws.amazon.com/systems-manager/)
+    + Group resources of different types together based on a query, e.g. an application. 
+    + Many features require the Agent installed - many AWS AMIs include it by default. EC2 instances need an instance profile for a role that has the necessary permissions to allow the agent to interact with SSM.
+    * Insights dashboard - per resource group
+        + Shows CloudTrail, Config, software inventory, and patch compliance 
+        + Can integrate CloudWatch dashboards, Trusted Advisory notificaitons, Personal Health Dashboard
+        + Potentially useful for understanding baseline usage patterns to contrast with during an incident
+    + Inventory - applications, files, network configurations, Windows services, registries, more 
+    * Automation
+        + documents of tasks to run; scheduled, triggered, or manually launched
+        + Approval feature - configure approvals required (via the console) before it continues
+        + Documents can have roles, and users can have permission to run documents - nice restriction of privileges to particular tasks
+    * Run command
+        + Logs via CloudTrail
+        + Can be triggered by CloudWatch Events
+    * Session Manager - browser based shell w/ IAM & CloudTrail
+        + Can log session data to S3 and/or CloudWatch Logs
+    * Patch Manager
+    * State Manager - specify OS configuration, rollout schedule, compliance reporting
+    * Parameter store
+        + Can be tagged + organized in a hierarchy.
+        + KMS for encryption - users need KMS permissions to use the corresponding CMK (can restrict using a condition on kms:EncryptionContext to just particular parameters)
+        + IAM resource per-parameter
+        + 10k params per account
+    + Patch Manager and State Manager can operate on on-prem instances too
+    + Lots of resources, no resource-based policies
+    + The CloudWatch Agent can send SSM actions on the host to CloudWatch Logs
 * [**Trusted Advisor**](https://aws.amazon.com/premiumsupport/technology/trusted-advisor/faqs/)
     + 7 free checks, all checks with appropriate support plan.
     + API; Console; Weekly notification email with summary of findings
@@ -477,6 +625,8 @@ Security service links are to their FAQ pages, as a useful source of information
 *Networking & Content Delivery*
 * API Gateway
     + Logs to CloudWatch
+    + sigV4 signed requests, or Cognito token verification, or Lambda authorizers for other token verification
+    + Can configure with a 'client-side' certificate that API gateway uses for making requests to backend servers
 * CloudFront
     + Logs to S3 w/ dedicated(?) bucket ACL
 * Route 53
@@ -590,15 +740,54 @@ Security service links are to their FAQ pages, as a useful source of information
         + Can reference SGs in peered VPCs.
 
 *Storage*
-* **S3**
-    * Lifecycle policies
-    + S3 access logs -> a bucket
-    - policy actions + resources
-    - ACLs
+* [**S3**](https://aws.amazon.com/s3/)
+    * Monitoring
+        + CloudTrail by default records bucket-level actions
+        + Can enble CloudTrail logging of object-level actions by setting that property on a bucket in S3 (can choose read/write)
+        + Server access logging - separate audit log, configured per-bucket, that stores events in a bucket. Destination bucket needs a special ACL (see ACL section). Best-effort delivery.
+    + Buckets and Objects are the main resources, each have various subresources (versioning, policies/acls, ...)
+    + Buckets are truly global - no region or account ID in their ARN
+    + The account that uploads objects owns them - even if the bucket is owned by a different account! Bucket owner pays for storage, manages storage class, and can delete or deny access to any object.
+    + [Access control](https://docs.aws.amazon.com/AmazonS3/latest/dev/how-s3-evaluates-access-control.html) logic is complex. That page doesn't include "block public access" logic.
+        + User needs to have permission - using identity policies (or user is the root of an account)
+        + For bucket operations: bucket needs to have permission - either just bucket policy/acl for user in a different account, or both bucket policy/acl and identity policy if user is in the same account
+        + For object operations: User has to have permission (or be root). Bucket policy/acl has to _not deny_. Object ACL (or bucket policy) has to allow. Three different account contexts in play - the user's account (IAM), the bucket's account (for bucket ACL/policy & identity policy if same-account), the object's account (for object ACL).
+    * Bucket policies
+        + Bucket resource-based policy.
+    * ACLs
+        + Bucket and object resource-based policy
+        + Default ACL grants the owner account full control
+        + List of grants, each grant gives a grantee (an AWS account or predefined group) a permission
+        + Grantee groups: Authenticated Users group - _any_ AWS user. All Users group - incl anonymous. Log Delivery group - S3 audit logs.
+        + Permissions: READ, WRITE (only applies to buckets - allows overwriting and deleting objects), READ/WRITE ACL, FULL CONTROL (all of the above)
+        + Don't use bucket ACLs except for allowing write access to the Log Delivery Group for access logging. This is the only way.
+    * Block Public Access
+        + Applied to specific buckets, or all buckets in an account
+        + BlockPublicAcls - can't create new public bucket or object ACLs
+        + IgnorePublicAcls - existing (and new) public ACLs are ignored
+        + BlockPublicPolicy - can't create public bucket polciies (only really works if applied account-wide, otherwise you can undo it via a bucket policy that allows modifying this policy...)
+        + RestrictPublicBuckets - blocks all anonymous and cross-account access to a bucket
+    + Query string authentication - instead of using the authorization header, you specify the access key ID and signature in 
+    * Event notifications
+        + Per bucket.
+        + Sources: object creation, deletion, restoration from Glacier, and loss (for reduced redunadancy class)
+        + Destinations: SNS topic, SQS queue, Lambda
+    + Versioning
+        + Enable on a bucket, then all object versions (including deleted one) remain available. Bucket owner can permanently delete.
+        + Object lock: can't be deleted or overwritten until a particular date. Governance mode - needs s3:BypassGovernanceMode to override; Compliance mode - can't be overridden, even by root. Legal Hold - no end date (separate perm needed to override). Applies to an individual object version.
+        + MFA delete: have to provide a TOTP code to delete (separate to IAM MFA) in `x-amz-mfa` header
+    * Lifecycle policies 
+        + Transition action - change storage class
+        + Expiration action - delete
+        + e.g. archive old versions to glacier, then delete.
+    * Encryption
+        + SSE-S3  - pure S3 managed encryption
+        + SSE-KMS - standard KMS integration like other services
+        + SSE-C   - you send the plaintext encryption key in the request (!)
+        + The SDKs also ease support for client-side encryption
 * EBS
     + Snapshots might be useful for recovery
-    + Encryption (if enabled) happens on the EC2 server side, not the EBS side, hence encrypted in transit and rest.
-    + Uses KMS
+    + Encryption (if enabled) happens on the EC2 server side, not the EBS side, hence encrypted in transit and rest. Uses KMS.
 * [EFS](https://aws.amazon.com/efs/)
     + NFS filesystem
     + Standard posix permissions
@@ -607,7 +796,8 @@ Security service links are to their FAQ pages, as a useful source of information
     + transparent encryption at rest with KMS (could monitor compliance with a CloudWatch alarm over CloudTrail logs)
     + NFS over TLS is an option with the EFS mount helper (stunnel)
 * S3 Glacier
-    - what is Vault lock?
+    + Value access policies - resource based policy attached to a vault
+    + Vault lock polciies - a vault access policy that can be locked to prevent changes to it
 * Backup
 * Snow family
 * Storage Gateway
