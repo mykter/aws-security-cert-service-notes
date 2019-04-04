@@ -1,4 +1,5 @@
 
+<a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
 
 # Services and Topics
 
@@ -15,14 +16,14 @@ A complete list of the security services, and selected services of relevance to 
 
 Particularly important services and topics are in **bold**.
 
-Security service links are to their FAQ pages, as a useful source of information on particular use cases and constraints that might be examined. Other service links are to their main product pages
+Security service links are to their FAQ pages, as a useful source of information on particular use cases and constraints that might be examined. Other service links are to their main product pages, but the FAQ pages often have good information including a security section too.
 
 ## Security
 * [Artifact](https://aws.amazon.com/artifact/faq/)
     + Generic AWS compliance docs
 * [Certificate Manager](https://aws.amazon.com/certificate-manager/faqs/)
     + Issuance can take a few hours
-    + Email or DNS validation (email only for CloudFormation)
+    + Email or DNS validation (CloudFormation only supports email validation)
     + Validates DNS CA Authorization records first
     + Certs are region-locked, unless CloudFront is used (w/ virgina)
     + Private keys are KMS protected - CloudTrail shows services using KMS to get the keys
@@ -33,10 +34,10 @@ Security service links are to their FAQ pages, as a useful source of information
     + Encrypted at rest and in transit
 * [CloudHSM](https://aws.amazon.com/cloudhsm/faqs/)
     + Advertised as only suitable when you have contractual/regulatory constraints.
-    + Only option for SQL Server and Oracle transparent database encryption (but not AWS RDS Oracle!). Also works with redshift.
+    + Only option for SQL Server and Oracle transparent database encryption (but not AWS RDS Oracle! only instances running on EC2. RDS Oracle  only works with CloudHSM Classic). Also works with redshift.
     + PKCS#11, JCE, CNG
     + FIPS 140-2 Level 3 certified
-    + KMS can use it as a key store
+    + KMS can use it as a key store - see KMS section
     + Each instance appears as network resource in VPC; client does load-balancing.
     + [[HSM] Server] <-TLS-in-TLS-> [client] <-p11 etc-> [app]
     + HSM users authenticate with username + password
@@ -48,7 +49,7 @@ Security service links are to their FAQ pages, as a useful source of information
     * Identity Pools
         + Mapping between federated user IDs and cognito user IDs. Per pool.
         + Grants temporary AWS creds (either directly from federation, or in exchange for a user pool token)
-    + IAM Roles assigned based on pool groups / rules / guest
+        + IAM Roles assigned based on: mappings defined for a user pool group / rules / guest
     + API Gateway has direct support for Cognito tokens (no need for identity pool)
     + Sync store - key/value store per identity
     + [Common scenarios](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-scenarios.html)
@@ -60,9 +61,9 @@ Security service links are to their FAQ pages, as a useful source of information
         + Can join to existing AD with trust relationships
         + Or replace an on-prem AD by using Direct Connect or VPN
         + EBS volumes are encrypted. Deployed on two AZs. Daily backups.
-        + Some high-priv operations not available. No remote access, powershell access. You get an OU and delegated admin account for it.
+        + Some high-priv operations not available. No remote access or powershell access. You get an OU and delegated admin account for it.
     * AD Connector
-        + Proxy for [specific list of AWS services](https://docs.aws.amazon.com/directoryservice/latest/admin-guide/ad_connector_app_compatibility.html) through to on-prem AD.
+        + Proxy for [a specific list of AWS services](https://docs.aws.amazon.com/directoryservice/latest/admin-guide/ad_connector_app_compatibility.html) through to on-prem AD.
         + Notably works with: SSO; management console; EC2 Windows (join domain)
     * Simple AD
         + Samba backend. Like Managed Microsoft AD but less features and smaller resource limits.
@@ -74,20 +75,22 @@ Security service links are to their FAQ pages, as a useful source of information
     + ^^ meta-data, + AWS' threat intelligence - domains & ips, + ML
     + Pricing per volume of data analyzed
     + Looks for reconnaisance, (ec2?) instance compromise, account compromise
-    + Findings -> GuardDuty console (for 90 days) + CloudWatch Events. JSON similar to Macie & Inspector
+    + Findings -> GuardDuty console (for 90 days) + CloudWatch Events. Findings in JSON format similar to Macie & Inspector
     + Regional. Can aggregate via CloudWatch Events to push to a central store
     + CloudWatch events -> SNS topic (-> email) / Lambda (->S3)
 * [**IAM**](https://aws.amazon.com/iam/faqs/)
     * Users, Groups, Roles
         + Roles for EC2 instances
-            + creds found in http://169.254.169.254/latest/meta-data/iam/security-credentials/\<role / instance profile name>
+            + creds found in http://169.254.169.254/latest/meta-data/iam/security-credentials/<role / instance profile name>
             + To launch an instance, users need iam:PassRole for the relevant roles.
             + Can be attached at launch or later.
             + Auto rotation, built in support for obtaining the creds when using CLI & SDKs
         + Service linked role - predefined policy granting service what it needs; immutable trust policy.
-        + Assumed role ARN: `arn:aws:sts::AWS-account-ID:assumed-role/role-name/role-session-name`
+        + Role trust policy: what principals (account/user/role/service/federated user) can sts:AssumeRole. IAM users/roles also need an identity policy that allow them to assume the role.
+        + Assumed role ARN: `arn:aws:sts::AWS-account-ID:assumed-role/role-name/role-session-name`, where the session name might be the EC2 instance ID, or the IAM username, for example.
     * Access keys
-        + Rotate by creating second access key, start using it, check last used date of old one, make old one inactive, then deleting it
+        + Rotate by creating second access key, start using it, check last used date of old one, make old one inactive, then delete it
+        + Trusted advisor can look for overly long-lived access keys
     * Policies
         + Resource based policies
             + Specifies a Principal.
@@ -97,29 +100,29 @@ Security service links are to their FAQ pages, as a useful source of information
         + Identity based policies (aka IAM policies)
             + Attached to a user/group/role - implicit Principal
             + Limit of 10 managed policies can be attached
-            + Versions - up to 5, you set which is the 'default' for customer managed policies. inline polciies don't have versions.
+            + Versions - up to 5, you set which is the 'default' for customer managed policies. Inline polciies don't have versions.
         * [Permissions boundaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html)
             + Set the maximum permissions that an identity-based policy can grant to an IAM entity
             + Unlike SCPs, can specify resources and use conditions
         + Service Control Policies (SCPs) - see Organizations
-        + Session policies - like a permission boundary, optionally passed prorgamatically as part of AssumeRole*
-        * [Evaluation logic](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html)
-        * Policy variables
-            + Use in resource element and string operators in conditions
-            + Basically the same set of variables as global conditions. aws:username etc.
+        + Session policies - like a permission boundary, optionally passed programatically as part of AssumeRole*
+        * [Evaluation logic](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html) - but there are special cases not listed here, e.g. KMS, S3
         * Conditions
             * Operators
                 + Date, Numeric, String, Bool, Binary (b64), IpAddress, Arn, Null (key:true - key doesn't exist, key:false - key does exist and isn't null)
                 + operators are ANDed, multiple values in an operator are ORed
                 + ...IfExists returns true if key doesn't exist
-                + Set operators for keys with multiple values - ForAllValues:... ForAnyValue:...
+                + Set operators for keys with multiple values - ForAllValues:<operator>... ForAnyValue:<operator>...
             + All services: time, MFA, secure transport, user agent
             + aws:source{Vpc,Vpce (endpoint),Account,Arn,Ip}
             + aws:PrincipalOrgID - instead of listing lots of accounts, just use the Org. In resource policies - Principal:*, then this condition
-            + aws:PrincipalTag/<tag-key> - you can tag users and roles. Also aws:RequestTag and service:ResourceTag
+            + aws:PrincipalTag/<tag-key> - you can tag users and roles. Also service:ResourceTag and aws:RequestTag (control what tags users can use when tagging resources).
             + aws:PrincipalType
             + aws:RequestedRegion
             + aws:userid aws:username
+        * Policy variables
+            + Use in resource element and string operators in conditions
+            + Basically the same set of variables as global conditions. aws:username etc.
         * (Not)Principal
             + AWS - users, roles, accounts
             + Federated - just "this principal authenticated with this provider" - no info on the role
@@ -134,6 +137,13 @@ Security service links are to their FAQ pages, as a useful source of information
         + When did an entity last use a permission
         + For each of User, Group, Role, and Policy
     * Federation
+        + SAML
+            + Users gets SAML assertion from their IdP portal, uses STS to exchange it for temporary creds.
+            + IdP maps users/groups to roles.
+            + Requires config info including keys registered with both the IdP and AWS IAM
+            + Use AWS SSO to access the console.
+        + Web identity federation - just use Cognito. IAM does support it natively too though.
+        + Active Directory - use Directory Service, setup roles that trust DS, assign users or groups to roles
     + [Service support](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-services-that-work-with-iam.html)
         + Of interest are services that have resource-based policies, services that don't have resource-level permissions, and services that don't support temporary creds
         + Notable resource-based policies: ECR; Lambda; S3 & Glacier; KMS; Secrets Manager; API Gateway; VPC endpoints; SNS; SQS; SES
@@ -442,7 +452,7 @@ A comparison and summary of some of the security aspects of the various database
 
 | **Database** | **Transport encryption**                                                               | **Encryption at rest**                         | **Audit**                                            | **DB Authentication**                                                                                         | **DB Authorization**                                                         |
 |--------------|----------------------------------------------------------------------------------------|------------------------------------------------|------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| RDS          | Rooted at global RDS certs, configuration is per-engine <br>[docs][rds-tls]            | KMS; TDE w/ CloudHSM for SQL Server and Oracle | per-engine log files                                 | per engine user accounts - SQL                                                                                | per engine - SQL                                                             |
+| RDS          | Rooted at global RDS certs, configuration is per-engine <br>[docs][rds-tls]            | KMS; TDE w/ SQL Server and Oracle - RDS managed key (used to be CloudHSM Classic)| per-engine log files                                 | per engine user accounts - SQL                                                                                | per engine - SQL                                                             |
 | DynamoDB     | Standard AWS HTTPS endpoint                                                            | KMS                                            | CloudTrail, excl. Get/Put <br>[docs][dynamodb-audit] | IAM only. Cognito possible. <br>[docs][dynamodb-cognito]                                                      | IAM identity policies - resources & condition keys <br>[docs][dynamodb-auth] |
 | Redshift     | ACM managed certificate, redshift specific root <br>[docs][redshift-tls]               | KMS; CloudHSM Classic                          | S3 <br>[docs][redshift-audit]                        | DB user accounts - SQL; IAM with custom drivers <br>[docs][redshift-auth]                                     | SQL                                                                          |
 | Neptune      | Publicly trusted Amazon root; mandated for some regions <br>[docs][neptune-tls]        | KMS                                            | Console <br>[docs][neptune-audit]                    | User accounts; or a limited IAM identity policy mechanism + request signing <br>[docs][neptune-auth]          | Engine-specific; or broad access if using IAM                                |
@@ -629,6 +639,7 @@ These sound like they should be in scope, but I suspect they're not.
     + Logs to CloudWatch
     + sigV4 signed requests, or Cognito token verification, or Lambda authorizers for other token verification
     + Can configure with a 'client-side' certificate that API gateway uses for making requests to backend servers
+    + Resource policies control who can invoke an API
 * CloudFront
     + Logs to S3 w/ dedicated(?) bucket ACL
 * Route 53
