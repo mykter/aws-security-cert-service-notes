@@ -17,7 +17,7 @@ Particularly important services and topics are in **bold**.
 
 Security service links are to their FAQ pages, as a useful source of information on particular use cases and constraints that might be examined. Other service links are to their main product pages
 
-*Security*
+## Security
 * [Artifact](https://aws.amazon.com/artifact/faq/)
     + Generic AWS compliance docs
 * [Certificate Manager](https://aws.amazon.com/certificate-manager/faqs/)
@@ -308,7 +308,8 @@ Security service links are to their FAQ pages, as a useful source of information
     + Associate Web ACLs with CloudFront, ALB, and API Gateway instances which will then proxy requests via WAF and act on result
     + Also see Firewall Manager and Shield (Advanced)
 
-*Analytics* (mostly of interest for their application to logs)
+## Analytics
+(mostly of interest for their application to logs)
 * [Athena](https://aws.amazon.com/athena/faqs/)
     + SQL queries over data in S3 after you define a schema. Including (optioanlly compressed) JSON & CSV
     + Integrates with Glue's Data Catalog - a more featureful version of Athena's built in Data Catalog which supports fine-grained permissions.
@@ -339,7 +340,7 @@ Security service links are to their FAQ pages, as a useful source of information
         + Manage delivery frequency with buffer size or interval
 * Redshift (see Database section)
 
-*Application Integration*
+## Application Integration
 * [SNS](https://aws.amazon.com/sns/)
     + Pub/sub.
     + Sources include: SNS API, Lambda, ELB, S3, databases, Code*, CloudWatch, Inspector, and others
@@ -353,7 +354,7 @@ Security service links are to their FAQ pages, as a useful source of information
     + Can trigger Lambda functions on message receipt
     + Uses KMS for optional encryption
 
-*Compute*
+## Compute
 * [**EC2**](https://aws.amazon.com/ec2/)
     * AMIs
         + LaunchPermission attribute - which _accounts_ can use the AMI.
@@ -430,12 +431,12 @@ Security service links are to their FAQ pages, as a useful source of information
     * (Classic)
     + Logs to S3
 
-*Customer Engagement*
+## Customer Engagement
 * [Simple Email Service (SES)](https://aws.amazon.com/ses/)
     + potentially incident notification, but SNS probably more appropriate
     + Can receive mail, which can be encrypted using a KMS protected key. SDK available to support decryption.
 
-*Database*
+## Database
 
 A comparison and summary of some of the security aspects of the various database offerings:
 
@@ -505,20 +506,20 @@ A comparison and summary of some of the security aspects of the various database
     + arns follow the RDS format
     + Auditing can be enabled to send events to CloudWatch Logs. Categories: connection, data definition language (DDL), user management, and authorization
 
-*Developer tools*
+## Developer tools
 * Code Pipeline
 * X-Ray
 
-*End User Computing*
+## End User Computing
 * WorkSpaces
 
-*Internet of Things?*
+## Internet of Things?
 These sound like they should be in scope, but I suspect they're not.
 
 * IoT Device Defender
 * IoT Device Management
 
-*Management and Governance*
+## Management and Governance
 * CloudFormation
     * Stacks
         + You can assign a service role, if you can iam:PassRole it. Anyone who can operate on that stack can leverage that role's permissions.
@@ -619,10 +620,10 @@ These sound like they should be in scope, but I suspect they're not.
         + Missing or weak IAM password policy
 * Snow Family (see storage)
 
-*Mobile*
+## Mobile
 * API Gateway (see network & content delivery)
 
-*Networking & Content Delivery*
+## Networking & Content Delivery
 * API Gateway
     + Logs to CloudWatch
     + sigV4 signed requests, or Cognito token verification, or Lambda authorizers for other token verification
@@ -739,7 +740,7 @@ These sound like they should be in scope, but I suspect they're not.
         + Stateful - responses are always allowed
         + Can reference SGs in peered VPCs.
 
-*Storage*
+## Storage
 * [**S3**](https://aws.amazon.com/s3/)
     * Monitoring
         + CloudTrail by default records bucket-level actions
