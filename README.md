@@ -445,6 +445,7 @@ Security service links are to their FAQ pages, as a useful source of information
 * [Simple Email Service (SES)](https://aws.amazon.com/ses/)
     + potentially incident notification, but SNS probably more appropriate
     + Can receive mail, which can be encrypted using a KMS protected key. SDK available to support decryption.
+    + TLS API or TLS SMTP connection (port 587), also supports STARTLS and DKIM, and can work with SPF and DMARC
 
 ## Database
 
@@ -595,6 +596,7 @@ These sound like they should be in scope, but I suspect they're not.
         + Approval feature - configure approvals required (via the console) before it continues
         + Documents can have roles, and users can have permission to run documents - nice restriction of privileges to particular tasks
     * Run command
+        + Sometimes called EC2 run command
         + Logs via CloudTrail
         + Can be triggered by CloudWatch Events
     * Session Manager - browser based shell w/ IAM & CloudTrail
@@ -640,8 +642,13 @@ These sound like they should be in scope, but I suspect they're not.
     + sigV4 signed requests, or Cognito token verification, or Lambda authorizers for other token verification
     + Can configure with a 'client-side' certificate that API gateway uses for making requests to backend servers
     + Resource policies control who can invoke an API
-* CloudFront
-    + Logs to S3 w/ dedicated(?) bucket ACL
+* [CloudFront](https://aws.amazon.com/cloudfront/)
+    + Optional access logs to S3 - bucket ACL configured to give the awslogsdelivery account full control. Metrics via CloudWatch.
+    + Field level encryption - CloudFront can encrypt specific POST fields with a public key you've configured. Reduces exposure of sensitive data as it passes through the backend.
+    + HTTPS: can configure HTTP, redirect to HTTPS, or HTTPS only for client side. For origin side can do HTTP, match viewer, or HTTPS.
+    + To serve content from S3 _only_ via CloudFront, create an 'origin access identity' for the distribution, then create a bucket policy that blocks public access and allows the special `"Principal":{"CanonicalUser":"<CloudFront Origin Identity Canonical User ID>"}`
+    + Can only allow specific geographic regions based on IP
+    + Can require signed URLs or signed Cookies - CloudFront creates keypairs for each "trusted signer" AWS account, and the account generates time-limited signed URLs or Cookies for clients to use.
 * Route 53
 * VPC PrivateLink - see VPC Interface Endpoints
 * App Mesh?
@@ -800,7 +807,7 @@ These sound like they should be in scope, but I suspect they're not.
         + The SDKs also ease support for client-side encryption
 * EBS
     + Snapshots might be useful for recovery
-    + Encryption (if enabled) happens on the EC2 server side, not the EBS side, hence encrypted in transit and rest. Uses KMS.
+    + Encryption (if enabled) happens on the EC2 server side (outside the EC2 VM), hence encrypted in transit and rest. Uses KMS - wrapped data key stored alongside volume.
 * [EFS](https://aws.amazon.com/efs/)
     + NFS filesystem
     + Standard posix permissions
