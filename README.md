@@ -3,7 +3,7 @@ An all-in-one-place collection of security information about all of the core AWS
 
 These are the notes I created whilst studying for the [AWS Certified Security - Specialty](https://aws.amazon.com/certification/certified-security-specialty/) exam. They are intended as a knowledge check, reminder, and subject list for each AWS service. They are not intended as a primary learning source, and they assume an existing knowledge of security. I think if you can look through this list and feel confident that you are familiar with all of it, don't come away with a lot of follow up questions, and think you can recall most of it unaided, then you will probably pass the security certification exam. It worked for me, anyway!
 
-I don't plan to actively maintain this list - reader beware, the rate of change at AWS is high! I will however gratefully accept pull requests if you find yourself using it in the future and wish to bring it up to date, or fix errors, or otherwise enhance it in any way.
+I don't plan to actively maintain this list as AWS evolves - reader beware, the rate of change at AWS is high! I would like to correct any errors though - please do raise an issue. I'll also happily accept pull requests if you find yourself using it and wish to bring it up to date, or fix errors, or otherwise enhance it in any way.
 
 If you found this useful please [let me know](https://twitter.com/michael_macnair)!
 
