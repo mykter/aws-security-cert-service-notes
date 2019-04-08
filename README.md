@@ -1,9 +1,9 @@
 # AWS Service Security Notes
 An all-in-one-place collection of security information about all of the core AWS services.
 
-These are the notes I created whilst studying for the [AWS Certified Security - Specialty](https://aws.amazon.com/certification/certified-security-specialty/) exam. They are intended as a knowledge check, reminder, and subject list for each AWS service. They are not intended as a primary learning source, and they assume an existing knowledge of security. I think if you can look through this list and feel confident that you understand everything that is written, don't come away with a lot of follow up questions, and think you can recall most of it unaided, then you will probably pass the security certification exam. It worked for me, anyway!
+These are the notes I created whilst studying for the [AWS Certified Security - Specialty](https://aws.amazon.com/certification/certified-security-specialty/) exam. They are intended as a knowledge check, reminder, and subject list for each AWS service. They are not intended as a primary learning source, and they assume an existing knowledge of security. I think if you can look through this list and feel confident that you are familiar with all of it, don't come away with a lot of follow up questions, and think you can recall most of it unaided, then you will probably pass the security certification exam. It worked for me, anyway!
 
-I don't plan to actively maintain this list - reader beware, the rate of change at AWS is high! I will however gratefully accept pull requests if you find yourself using it in the future and wish to bring it up to date or fix errors or otherwise enhance it in any way.
+I don't plan to actively maintain this list - reader beware, the rate of change at AWS is high! I will however gratefully accept pull requests if you find yourself using it in the future and wish to bring it up to date, or fix errors, or otherwise enhance it in any way.
 
 If you found this useful please [let me know](https://twitter.com/michael_macnair)!
 
@@ -13,7 +13,7 @@ If you found this useful please [let me know](https://twitter.com/michael_macnai
 # Services
 A complete list of the AWS security services, and selected additional AWS services of relevance to security (in particular, the security specialist certification). Taken from the [AWS product list](https://aws.amazon.com/products/) as of March 2019; if a category isn't listed it's because I thought none of the services in that category are particularly applicable.
 
-Particularly important services are in **bold**.
+Particularly important services from an exam perspective are in **bold**.
 
 Security service links are to their FAQ pages, as a useful source of information on particular use cases and constraints that might be examined. Other service links are to their main product pages, but the FAQ pages often have good information including a security section too.
 
@@ -346,7 +346,7 @@ Security service links are to their FAQ pages, as a useful source of information
     + Security model uses both athena:* permissions for queries and data models, and then the underlying S3 permissions
     + Can query encrypted data that uses S3 or KMS managed keys. Can encrypt results.
     + Athena is better than Redshift for querying smaller datasets without pre-processing.
-    + CloudTrail can automatically create Athena tables for you. Other good candidates: VPC flow logs (if sent to S3), CloudFront, ELB.
+    + CloudTrail can automatically create Athena tables for you, and AWS are keen to push Athena as an ideal CloudTrail analysis tool. Other good candidates: VPC flow logs (if sent to S3), CloudFront, ELB.
 
 * [Elasticsearch service](https://aws.amazon.com/elasticsearch-service/faqs/)
     + IAM auth for management, ES APIs, and resource-based policies down to index level
@@ -660,7 +660,7 @@ These sound like they should be in scope, but I suspect they're not as they're v
     + Many features require the Agent installed - many AWS AMIs include it by default. EC2 instances need an instance profile for a role that has the necessary permissions to allow the agent to interact with SSM.
     * Insights dashboard - per resource group
         + Shows CloudTrail, Config, software inventory, and patch compliance 
-        + Can integrate CloudWatch dashboards, Trusted Advisory notificaitons, Personal Health Dashboard
+        + Can integrate CloudWatch dashboards, Trusted Advisor notificaitons, Personal Health Dashboard
         + Potentially useful for understanding baseline usage patterns to contrast with during an incident
     + Inventory - applications, files, network configurations, Windows services, registries, more 
     * Automation
