@@ -5,6 +5,8 @@ These are the notes I created whilst studying for the [AWS Certified Security - 
 
 I don't plan to actively maintain this document as AWS evolves - reader beware, the rate of change at AWS is high! I would like to correct any errors though - please do raise an issue. I'll also happily accept pull requests if you find yourself using it and wish to bring it up to date, or fix errors, or otherwise enhance it in any way.
 
+Final caveat: this doesn't teach you how to be good at AWS security. See my blog post on [what I think the Security Speciality certification means](https://mykter.com/2019/05/04/aws-security-certification), and hence what this document aims to cover.
+
 If you found this useful please [let me know](https://twitter.com/michael_macnair)!
 
 <br><br>
