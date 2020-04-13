@@ -189,7 +189,7 @@ Security service links are to their FAQ pages, as a useful source of information
         + Required. Also different evaluation logic to standard IAM - if the key policy doesn't allow, then the request is denied regardless of identity policies.
         + Resource: "*" - this CMK
         + Principal: accounts/users/roles/services. Not groups! Have to use IAM identity policies to manage access via groups (or group -> assumerole).
-        + Default policy for API-create CMKs allows `kms:*` for the account / root user. This ensure it doesn't become unmanageable, and also _enables_ identity based IAM policies - without it IAM policies are ineffective.
+        + Default policy for API-created CMKs allows `kms:*` for the account / root user. This ensure it doesn't become unmanageable, and also _enables_ identity based IAM policies - without it IAM policies are ineffective.
         + Default policy for console created keys also allows you to specify:
             + Roles/Users who are Key Administrators, who can manage it - incl change its policy.
             + Roles/Users/other AWS accounts who are Key Users. They can encrypt/decrypt/generatedatakey, and manage grants for AWS services using the `kms:GrantIsForAWSResource` condition.
