@@ -61,7 +61,7 @@ Security service links are to their FAQ pages, as a useful source of information
     + [Common scenarios](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-scenarios.html)
     + Various soft limits e.g. API calls/s, groups/pool, etc. No limit on number of users.
 
-* [Directory Service](https://aws.amazon.com/directoryservice/faqs/)
+* [**Directory Service**](https://aws.amazon.com/directoryservice/faqs/)
     + Works with EC2 (manage them via group policies), RDS SQL server, WorkSpaces, AWS SSO, and a few more obscure ones
     + Can assign IAM roles to AD users for AWS access
     * Managed Microsoft AD
