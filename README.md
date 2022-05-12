@@ -284,7 +284,8 @@ Security service links are to their FAQ pages, as a useful source of information
                         "secretsmanager:VersionStage" : "AWSCURRENT" 
                     } 
                 }
-            }```
+            }
+            ```
         + Condition keys include `secretsmanager:ResourceTag/<tagname>`, `secretsmanager:VersionStage`
         + Configuring rotation requires creating and assigning a role to a Lambda function, which needs e.g. IAMFullAccess
 
